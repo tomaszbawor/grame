@@ -134,11 +134,32 @@ fn resolve_collision(a: &mut Rect, vel: &mut Vec2, b: &Rect) -> bool {
     false
 }
 
+fn balls_collision(balls: &mut Vec<Ball>) {
+    for i in 0..balls.len() {
+        for j in 0..balls.len() {
+            if i != j {
+                get_mut2(balls, i, j)
+                    .map(|(a, b)| resolve_collision(&mut a.rect, &mut a.vel, &b.rect));
+            }
+        }
+    }
+}
+
+pub fn get_mut2<T>(v: &mut [T], i: usize, j: usize) -> Option<(&mut T, &mut T)> {
+    if i == j {
+        return None;
+    }
+    let (start, end) = if i < j { (i, j) } else { (j, i) };
+
+    let (first, second) = v.split_at_mut(start + 1);
+    Some((&mut first[start], &mut second[end - start - 1]))
+}
+
 #[macroquad::main("grame")]
 async fn main() {
     let mut player = Player::new();
     let mut blocks = Vec::new();
-    let mut balls = Vec::new();
+    let mut balls: Vec<Ball> = Vec::new();
 
     let (horizontal_block_count, vertical_block_count) = (6, 6);
     let padding = 5f32;
@@ -185,6 +206,10 @@ async fn main() {
             }
         }
 
+        balls_collision(&mut balls);
+        // Remove balls that are out of the screen
+        balls.retain(|ball| ball.rect.y < screen_height());
+
         // remove killed blocks
         blocks.retain(|block| block.lives > 0);
 
@@ -195,10 +220,9 @@ async fn main() {
         }
 
         player.draw();
-        for ball in &balls {
+        for ball in balls.iter() {
             ball.draw()
         }
-
         next_frame().await
     }
 }
